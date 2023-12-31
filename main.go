@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,8 +11,9 @@ import (
 
 const (
 	defaultBotToken  = "bot_token"
-	defaultChannelID = 1 //chat_id
+	defaultChannelID = 1 // chat_id
 	defaultPort      = 8080
+	maxFileSize      = 10 << 30 // 10 GB in bytes
 )
 
 func main() {
@@ -24,41 +25,40 @@ func main() {
 	})
 
 	r.POST("/upload", func(c *gin.Context) {
-		file, err := c.FormFile("file")
+		file, header, err := c.Request.FormFile("file")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File not provided"})
 			return
 		}
+		defer file.Close()
 
-		fileContent, err := file.Open()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer fileContent.Close()
-
-		fileData, err := ioutil.ReadAll(fileContent)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if header.Size > maxFileSize {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File size exceeds the maximum allowed size"})
 			return
 		}
 
 		bot, err := tgbotapi.NewBotAPI(defaultBotToken)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Telegram bot"})
 			return
 		}
 
 		fileUpload := tgbotapi.FileBytes{
-			Name:  file.Filename,
-			Bytes: fileData,
+			Name:  header.Filename,
+			Bytes: make([]byte, header.Size), // pre-allocate memory
+		}
+
+		// Use io.LimitedReader to limit the number of bytes read from the file
+		limitedReader := io.LimitedReader{R: file, N: maxFileSize}
+		if _, err := io.ReadFull(&limitedReader, fileUpload.Bytes); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file"})
+			return
 		}
 
 		message := tgbotapi.NewDocumentUpload(defaultChannelID, fileUpload)
-
 		_, err = bot.Send(message)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send file to Telegram"})
 			return
 		}
 
