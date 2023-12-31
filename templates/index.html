@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+
+<!-- ... (previous HTML code) ... -->
+
+<body>
+    <div class="container mt-5">
+        <h2>File Upload</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="custom-file">
+                <input type="file" class="custom-file-input" id="fileInput" name="file" required
+                    onchange="displayFileName()">
+                <label class="custom-file-label" for="fileInput">Choose file</label>
+            </div>
+            <div class="progress mt-3" style="display: none;">
+                <div class="circular-progress">
+                    <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
+                        aria-valuemax="100">
+                        <span id="progressText">0%</span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary mt-3" onclick="uploadFile()">Upload</button>
+        </form>
+        <div id="successMessage" class="mt-3" style="display: none;">
+            <div class="alert alert-success" role="alert">
+                File sent successfully!
+            </div>
+        </div>
+        <div id="errorMessage" class="mt-3" style="display: none;">
+            <div class="alert alert-danger" role="alert">
+                <span id="errorText"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        function displayFileName() {
+            var input = document.getElementById('fileInput');
+            var label = document.querySelector('.custom-file-label');
+            label.innerHTML = input.files[0].name;
+        }
+
+        function uploadFile() {
+            var form = document.getElementById('uploadForm');
+            var formData = new FormData(form);
+
+            var progressBar = document.querySelector('.progress');
+            var progressText = document.getElementById('progressText');
+            var successMessage = document.getElementById('successMessage');
+            var errorMessage = document.getElementById('errorMessage');
+            var errorText = document.getElementById('errorText');
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload', true);
+
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    var percent = (e.loaded / e.total) * 100;
+                    progressBar.style.display = 'block';
+                    progressBar.querySelector('.progress-bar').style.width = percent + '%';
+                    progressText.innerHTML = percent.toFixed(2) + '%';
+                }
+            };
+
+            xhr.onload = function () {
+                progressBar.style.display = 'none';
+
+                if (xhr.status == 200) {
+                    successMessage.style.display = 'block';
+                    errorMessage.style.display = 'none';
+
+                    // Reset the form and hide messages after a short delay
+                    setTimeout(function () {
+                        form.reset();
+                        successMessage.style.display = 'none';
+                    }, 2000);
+
+                    // Reload the page after a successful upload
+                    setTimeout(function () {
+                        location.reload();
+                    }, 3000);
+                } else {
+                    successMessage.style.display = 'none';
+                    errorMessage.style.display = 'block';
+                    errorText.innerHTML = 'Error: ' + xhr.statusText;
+
+                    // Hide error message after a short delay
+                    setTimeout(function () {
+                        errorMessage.style.display = 'none';
+                    }, 3000);
+                }
+            };
+
+            xhr.onerror = function () {
+                progressBar.style.display = 'none';
+                successMessage.style.display = 'none';
+                errorMessage.style.display = 'block';
+                errorText.innerHTML = 'Network error';
+
+                // Hide error message after a short delay
+                setTimeout(function () {
+                    errorMessage.style.display = 'none';
+                }, 3000);
+            };
+
+            xhr.send(formData);
+        }
+    </script>
+</body>
+
+<!-- ... (remaining HTML code) ... -->
+
+
+</html>
